@@ -5,10 +5,10 @@ import pygame
 # Simulation Constants
 WIDTH, HEIGHT = 800, 600
 NUM_CELLS = 50
-
-GREEN = "#42f45f"
-RED = "#f44141"
-
+GREEN = (66, 244, 95)
+RED = (244, 65, 65)
+CELL_RADIUS = 7
+FPS = 60
 
 # Spatial Geometry Concepts
 class Point:
@@ -22,7 +22,6 @@ class Point:
     def move(self, vector):
         self.x += vector.h
         self.y += vector.v
-
 
 # Physics & Movement Vectors
 class Vector:
@@ -55,31 +54,26 @@ class Vector:
         if len_val != 0:
             self.divide(len_val)
 
-
 # Agent / Entity Logic
 class Cell:
     def __init__(self, color):
-        # Create random location within window bounds
-        x = random.randint(7, WIDTH - 7)
-        y = random.randint(7, HEIGHT - 7)
+        x = random.randint(CELL_RADIUS, WIDTH - CELL_RADIUS)
+        y = random.randint(CELL_RADIUS, HEIGHT - CELL_RADIUS)
         self.location = Point(x, y)
-        self.pos = self.location  # Alias for pseudocode compatibility
+        self.pos = self.location
         
-        # Create velocity vector with max length of 2
         h = random.uniform(-1, 1)
         v = random.uniform(-1, 1)
         self.velocity = Vector(h, v)
         self.velocity.normalize()
         self.velocity.multiply(random.uniform(1, 2))
         
-        self.size = 7
+        self.size = CELL_RADIUS
         self.color = color
 
     def move_cell(self, cells):
-        # Move position by velocity
         self.pos.move(self.velocity)
 
-        # Wall bouncing logic
         if self.pos.x - self.size < 0:
             self.pos.x = self.size
             self.velocity.h *= -1
@@ -94,7 +88,6 @@ class Cell:
             self.pos.y = HEIGHT - self.size
             self.velocity.v *= -1
 
-        # Check collision with other cells and spread infection
         for othercell in cells:
             if othercell != self:
                 dist = self.pos.distance(othercell.pos)
@@ -105,21 +98,31 @@ class Cell:
     def draw_cell(self, screen):
         pygame.draw.circle(screen, self.color, (int(self.location.x), int(self.location.y)), self.size)
 
-
 # Simulation Setup & Population
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Virus Simulation")
 
-cells = []
-for _ in range(NUM_CELLS - 1):
-    cells.append(Cell(GREEN))
+def reset_simulation():
+    cells = []
+    for _ in range(NUM_CELLS - 1):
+        cells.append(Cell(GREEN))
+    cells.append(Cell(RED))
+    return cells
 
-cells.append(Cell(RED))
+# Initialize the simulation
+cells = reset_simulation()
 
+# Data collection
+trial_count = 0
+max_trials = 100
+data_file = "sim1_data.txt"
+with open(data_file, "w") as file:
+    pass
 
 running = True
 clock = pygame.time.Clock()
+frames = 0
 
 while running:
     for event in pygame.event.get():
@@ -128,6 +131,19 @@ while running:
     
     screen.fill((0, 0, 0))
     
+    all_infected = all(cell.color == RED for cell in cells)
+    if all_infected:
+        seconds = frames / FPS
+        with open(data_file, "a") as file:
+            file.write(f"{seconds}\n")
+        
+        trial_count += 1
+        if trial_count >= max_trials:
+            running = False
+        else:
+            cells = reset_simulation()
+            frames = 0
+
     for cell in cells:
         cell.move_cell(cells)
         
@@ -135,6 +151,7 @@ while running:
         cell.draw_cell(screen)
     
     pygame.display.flip()
-    clock.tick(60)
+    clock.tick(FPS)
+    frames += 1
 
 pygame.quit()
